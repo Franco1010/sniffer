@@ -108,6 +108,18 @@ class TCP(Base):
             class_def = args[0]
         return self._getField(field, TCP, class_def)
 
+def verifyChecksumTCP(ips, ipd, len, tcpWchs, data):
+    pseudoheader= addListHex(str(ips)+str(ipd)+str('0006')+str(len))
+    checksum = addListHex(str(pseudoheader) + str(tcpWchs) + str(data))
+    foo = str(bin(int(checksum, HEX_SCALE)))[2:].zfill(16)
+    foo = foo.replace('0', '2')
+    foo = foo.replace('1', '0')
+    foo = foo.replace('2', '1')
+    foo.zfill(16)
+    foo = hex(int(foo, BIN_SCALE))[2:]
+    return foo.upper()
+    
+
 class IPDataPacket(Base):
     VERSION = ['VERSION', 0.5]
     IHL = ['IHL', 0.5]
@@ -129,17 +141,13 @@ class IPDataPacket(Base):
         if args and inspect.isclass(args[0]):
             class_def = args[0]
         return self._getField(field, IPDataPacket, class_def)
-    def __sumBin16len(self, x: str, y: str) -> str:
-        sum = bin(int(x, BIN_SCALE) + int(y, BIN_SCALE))[2:][::-1]
-        foo = list(map(lambda a : a[::-1],list(chunks(sum, 16))))
-        return foo[0] if len(foo) == 1 else self.__sumBin16len(foo[0], foo[1])
 
     def verifyChecksum(self) -> str:
         version = int(self.getField(*IPDataPacket.VERSION))
         header_len = version * int(self.getField(*IPDataPacket.IHL))
         data = self.binData(version // BYTE_HEX_LEN * BITS_PER_HEX, header_len * BITS_PER_HEX)
         foo = reduce(
-            self.__sumBin16len,
+            sumBin16len,
             list(data.split(SPACE))
         )
         return hex(int(foo, BIN_SCALE))
